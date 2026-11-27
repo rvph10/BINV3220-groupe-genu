@@ -11,6 +11,8 @@ export interface Application {
   appliedAt: string;
 }
 
+export type WithdrawnApplication = Omit<Application, "status"> & { status: "WITHDRAWN" };
+
 export interface ApplicationSummary {
   id: number;
   offerId: number;

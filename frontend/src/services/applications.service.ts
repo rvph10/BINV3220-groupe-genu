@@ -1,6 +1,6 @@
-import type { Application, ApplicationSummary } from "../models/application.ts";
+import type { Application, ApplicationSummary, WithdrawnApplication } from "../models/application.ts";
 import { API_URL, readJson } from "../utils/api.ts";
-import { isApplication, isApplicationSummaryList } from "../utils/guards.ts";
+import { isApplication, isApplicationSummaryList, isWithdrawnApplication } from "../utils/guards.ts";
 
 export const getApplications = async (
   token: string,
@@ -24,4 +24,17 @@ export const apply = async (
     body: JSON.stringify({ offerId, ...(message === "" ? {} : { message }) }),
   });
   return readJson(response, isApplication, "Candidature impossible");
+};
+
+export const withdrawApplication = async (
+  token: string,
+  id: number,
+): Promise<WithdrawnApplication> => {
+  const response = await fetch(`${API_URL}/applications/${id}/withdraw`, {
+    method: "PATCH",
+    headers: { Authorization: token },
+  });
+  const application = await readJson(response, isWithdrawnApplication, "Retrait impossible");
+  if (application.id !== id) throw new Error("Réponse inattendue de l'API");
+  return application;
 };

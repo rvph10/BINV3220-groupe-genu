@@ -9,6 +9,18 @@ export const createApplicationsService = (repository: ApplicationsRepository) =>
     if (!isStudent(user)) throw new HttpError(403, "FORBIDDEN", "Réservé aux étudiants");
     return repository.findByStudent(user.id).map(toApplicationSummary);
   },
+  withdraw: (user: User, id: number) => {
+    if (!isStudent(user)) throw new HttpError(403, "FORBIDDEN", "Réservé aux étudiants");
+    const result = repository.withdraw(id, user.id);
+    switch (result.kind) {
+      case "not_found":
+        throw new HttpError(404, "NOT_FOUND", "Candidature introuvable");
+      case "not_in_progress":
+        throw new HttpError(409, "APPLICATION_NOT_IN_PROGRESS", "Cette candidature n'est plus en cours");
+      case "withdrawn":
+        return toApplication(result.application);
+    }
+  },
   apply: (user: User, offerId: number, message: string | null) => {
     if (!isStudent(user)) throw new HttpError(403, "FORBIDDEN", "Réservé aux étudiants");
     const result = repository.create(offerId, user.id, message);

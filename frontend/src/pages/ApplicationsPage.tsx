@@ -12,7 +12,8 @@ interface ApplicationsPageProps {
 }
 
 const ApplicationsPage = ({ token, onUnauthorized }: ApplicationsPageProps) => {
-  const { applications, isLoading, error } = useApplications(token, onUnauthorized);
+  const { applications, isLoading, error, withdraw, withdrawingId, withdrawError } =
+    useApplications(token, onUnauthorized);
 
   const renderContent = () => {
     if (error) return <ErrorState message={error} />;
@@ -30,6 +31,7 @@ const ApplicationsPage = ({ token, onUnauthorized }: ApplicationsPageProps) => {
               <th scope="col">Date</th>
               <th scope="col">Message</th>
               <th scope="col">Statut</th>
+              <th scope="col">Action</th>
             </tr>
           </thead>
           <tbody>
@@ -41,11 +43,24 @@ const ApplicationsPage = ({ token, onUnauthorized }: ApplicationsPageProps) => {
                 <td>{PERIOD_LABELS[application.period]}</td>
                 <td>{formatSqliteUtcDateTime(application.appliedAt)}</td>
                 <td className="application-message">{application.message || "—"}</td>
-                <td>
+                <td aria-live="polite">
                   <StatusBadge
                     label={APPLICATION_STATUS_LABELS[application.status]}
                     tone={APPLICATION_STATUS_TONES[application.status]}
                   />
+                </td>
+                <td>
+                  {application.status === "IN_PROGRESS" && (
+                    <button
+                      type="button"
+                      className="button button-primary"
+                      aria-label={`Retirer la candidature à ${application.title}`}
+                      disabled={withdrawingId !== null}
+                      onClick={() => void withdraw(application.id)}
+                    >
+                      {withdrawingId === application.id ? "Retrait…" : "Retirer"}
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}
@@ -58,6 +73,7 @@ const ApplicationsPage = ({ token, onUnauthorized }: ApplicationsPageProps) => {
   return (
     <section>
       <h1>Mes candidatures</h1>
+      {withdrawError && <ErrorState message={withdrawError} />}
       {renderContent()}
     </section>
   );

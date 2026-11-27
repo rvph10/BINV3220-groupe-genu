@@ -1,4 +1,6 @@
-import { APPLICATION_STATUSES, type Application, type ApplicationSummary } from "../models/application.ts";
+import {
+  APPLICATION_STATUSES, type Application, type ApplicationSummary, type WithdrawnApplication,
+} from "../models/application.ts";
 import { COMPANY_STATUSES, type Company, type CompanyStatus } from "../models/company.ts";
 import type { Health } from "../models/health.ts";
 import { OFFER_STATUSES, PERIOD_CODES, type Offer } from "../models/offer.ts";
@@ -67,13 +69,22 @@ export const isOffer = (value: unknown): value is Offer =>
 export const isOfferList = (value: unknown): value is Offer[] =>
   Array.isArray(value) && value.every(isOffer);
 
-export const isApplication = (value: unknown): value is Application =>
+const isApplicationWithStatus = <T extends "IN_PROGRESS" | "WITHDRAWN">(
+  value: unknown,
+  status: T,
+): value is Omit<Application, "status"> & { status: T } =>
   isRecord(value) &&
   typeof value.id === "number" &&
   typeof value.offerId === "number" &&
   (value.message === null || typeof value.message === "string") &&
-  value.status === "IN_PROGRESS" &&
+  value.status === status &&
   typeof value.appliedAt === "string";
+
+export const isApplication = (value: unknown): value is Application =>
+  isApplicationWithStatus(value, "IN_PROGRESS");
+
+export const isWithdrawnApplication = (value: unknown): value is WithdrawnApplication =>
+  isApplicationWithStatus(value, "WITHDRAWN");
 
 export const isApplicationSummary = (value: unknown): value is ApplicationSummary =>
   isRecord(value) &&

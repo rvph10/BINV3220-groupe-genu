@@ -1,6 +1,6 @@
 import request from "supertest";
 import { beforeEach, describe, expect, it } from "vitest";
-import { ADMINISTRATOR, CONTACT, OFFER, STUDENT } from "../src/db/seed/seedIds.ts";
+import { ADMINISTRATOR, APPLICATION, CONTACT, OFFER, STUDENT } from "../src/db/seed/seedIds.ts";
 import type { Db } from "../src/db/database.ts";
 import { createTestApp, tokenFor } from "./helpers/testApp.ts";
 import { createTestDatabase } from "./helpers/testDatabase.ts";
@@ -18,6 +18,10 @@ const apply = (studentId: number = STUDENT.LUCAS_DUPONT) =>
 
 const list = (studentId: number) =>
   request(app).get("/applications").set("Authorization", tokenFor("STUDENT", studentId));
+
+const withdraw = (id: number | string, studentId: number = STUDENT.LUCAS_DUPONT) =>
+  request(app).patch(`/applications/${id}/withdraw`)
+    .set("Authorization", tokenFor("STUDENT", studentId));
 
 describe("GET /applications", () => {
   it("ne retourne que les candidatures de chaque étudiant, avec les détails de l'offre", async () => {
@@ -79,6 +83,89 @@ describe("GET /applications", () => {
       expect(response.status).toBe(403);
       expect(response.body.error.code).toBe("FORBIDDEN");
     }
+  });
+});
+
+describe("PATCH /applications/:id/withdraw", () => {
+  it("retire la candidature en cours et conserve ses données", async () => {
+    const response = await withdraw(APPLICATION.LUCAS_FLEET_APP);
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      id: APPLICATION.LUCAS_FLEET_APP,
+      offerId: OFFER.FLEET_APP,
+      message: "Le développement React m'intéresse particulièrement.",
+      status: "WITHDRAWN",
+      appliedAt: "2026-10-02 18:10:00",
+    });
+    expect(db.prepare("SELECT student_id, status FROM applications WHERE id = ?")
+      .get(APPLICATION.LUCAS_FLEET_APP)).toEqual({
+      student_id: STUDENT.LUCAS_DUPONT, status: "WITHDRAWN",
+    });
+    expect((await list(STUDENT.LUCAS_DUPONT)).body[0].status).toBe("WITHDRAWN");
+    expect((await apply().send({ offerId: OFFER.FLEET_APP })).status).toBe(201);
+  });
+
+  it("retire une candidature en cours même si l'offre n'est plus publiée", async () => {
+    db.prepare("UPDATE offers SET status = 'ARCHIVED' WHERE id = ?").run(OFFER.FLEET_APP);
+    expect((await withdraw(APPLICATION.LUCAS_FLEET_APP)).status).toBe(200);
+  });
+
+  it("renvoie la même erreur pour une candidature inexistante ou étrangère, quel que soit son statut", async () => {
+    const absent = await withdraw(99999);
+    const otherInProgress = await withdraw(APPLICATION.INES_FLEET_APP);
+    const otherWithdrawn = await withdraw(APPLICATION.INES_BILLING_API);
+    expect(absent.status).toBe(404);
+    expect(otherInProgress.status).toBe(404);
+    expect(otherWithdrawn.status).toBe(404);
+    expect(otherInProgress.body).toEqual(absent.body);
+    expect(otherWithdrawn.body).toEqual(absent.body);
+    expect(db.prepare("SELECT status FROM applications WHERE id = ?")
+      .get(APPLICATION.INES_FLEET_APP)).toEqual({ status: "IN_PROGRESS" });
+  });
+
+  it.each(["0", "-1", "abc", "1.5", "1e2", "9007199254740992"])(
+    "refuse l'identifiant invalide %s",
+    async (id) => {
+      const response = await withdraw(id);
+      expect(response.status).toBe(400);
+      expect(response.body.error.code).toBe("INVALID_PARAMETER");
+    },
+  );
+
+  it.each(["SELECTED", "REJECTED", "WITHDRAWN"] as const)(
+    "refuse le retrait d'une candidature %s",
+    async (status) => {
+      db.prepare("UPDATE applications SET status = ? WHERE id = ?")
+        .run(status, APPLICATION.LUCAS_FLEET_APP);
+      const response = await withdraw(APPLICATION.LUCAS_FLEET_APP);
+      expect(response.status).toBe(409);
+      expect(response.body.error.code).toBe("APPLICATION_NOT_IN_PROGRESS");
+      expect(db.prepare("SELECT status FROM applications WHERE id = ?")
+        .get(APPLICATION.LUCAS_FLEET_APP)).toEqual({ status });
+    },
+  );
+
+  it("n'autorise pas une session absente ou un profil non étudiant", async () => {
+    expect((await request(app).patch("/applications/1/withdraw")).status).toBe(401);
+    for (const [kind, id] of [
+      ["ADMIN", ADMINISTRATOR.ANNE_LECLERCQ],
+      ["CONTACT", CONTACT.CLAIRE_DUMONT],
+      ["CONTACT", CONTACT.NADIA_CHERIF],
+    ] as const) {
+      const response = await request(app).patch("/applications/1/withdraw")
+        .set("Authorization", tokenFor(kind, id));
+      expect(response.status).toBe(403);
+    }
+    expect(db.prepare("SELECT status FROM applications WHERE id = ?")
+      .get(APPLICATION.LUCAS_FLEET_APP)).toEqual({ status: "IN_PROGRESS" });
+  });
+
+  it("n'effectue qu'un retrait lors de deux requêtes simultanées", async () => {
+    const responses = await Promise.all([
+      withdraw(APPLICATION.LUCAS_FLEET_APP),
+      withdraw(APPLICATION.LUCAS_FLEET_APP),
+    ]);
+    expect(responses.map((response) => response.status).sort()).toEqual([200, 409]);
   });
 });
 

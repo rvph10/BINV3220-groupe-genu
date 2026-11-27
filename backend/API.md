@@ -29,10 +29,11 @@ Toute erreur a la même forme :
 |---|---|---|
 | 400 | `INVALID_QUERY` | Paramètre de requête invalide |
 | 400 | `INVALID_BODY` | Corps de requête invalide |
+| 400 | `INVALID_PARAMETER` | Paramètre de route invalide |
 | 401 | `UNAUTHENTICATED` | Session absente, expirée ou invalide ; compte non autorisé à se connecter |
 | 403 | `FORBIDDEN` | Utilisateur connecté, mais sans droit sur la ressource |
-| 404 | `NOT_FOUND` | Route inconnue |
-| 409 | `OFFER_NOT_PUBLISHED`, `APPLICATION_EXISTS` | Offre non publiée ou candidature non retirée existante |
+| 404 | `NOT_FOUND` | Route ou ressource introuvable |
+| 409 | `OFFER_NOT_PUBLISHED`, `APPLICATION_EXISTS`, `APPLICATION_NOT_IN_PROGRESS` | Conflit de statut ou candidature non retirée existante |
 | 500 | `INTERNAL_ERROR` | Erreur inattendue du serveur |
 
 ## GET /health
@@ -232,3 +233,22 @@ de cet étudiant à cette offre sont retirées. Les candidatures retirées sont 
 - `404` `NOT_FOUND` : offre inexistante.
 - `409` `OFFER_NOT_PUBLISHED` : offre non publiée.
 - `409` `APPLICATION_EXISTS` : candidature en cours, retenue ou non retenue existante.
+
+## PATCH /applications/:id/withdraw
+
+Retire une candidature en cours de l'étudiant connecté. La candidature est
+conservée avec le statut `WITHDRAWN`, quel que soit le statut actuel de l'offre.
+
+### Requête
+
+- Header `Authorization` obligatoire ; réservé aux étudiants.
+- `id` : identifiant entier positif de la candidature ; aucun corps requis.
+
+### Réponses
+
+- `200` : `{ "id": 1, "offerId": 1, "message": null, "status": "WITHDRAWN", "appliedAt": "2026-10-02 18:10:00" }`
+- `400` `INVALID_PARAMETER` : identifiant invalide.
+- `401` `UNAUTHENTICATED` : session absente ou invalide.
+- `403` `FORBIDDEN` : profil non étudiant.
+- `404` `NOT_FOUND` : candidature inexistante ou appartenant à un autre étudiant.
+- `409` `APPLICATION_NOT_IN_PROGRESS` : candidature retenue, non retenue ou déjà retirée.

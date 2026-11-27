@@ -33,3 +33,19 @@ Authorization: {{admin.response.body.token}}
 
 ### Erreur 401 : jeton absent
 GET http://localhost:3000/applications
+
+### Retirer la candidature en cours de Lucas (modifie les données de démo)
+PATCH http://localhost:3000/applications/1/withdraw
+Authorization: {{lucas.response.body.token}}
+
+### Erreur 404 : candidature d'un autre étudiant
+PATCH http://localhost:3000/applications/2/withdraw
+Authorization: {{lucas.response.body.token}}
+
+### Erreur 409 : candidature déjà retirée d'Inès
+PATCH http://localhost:3000/applications/5/withdraw
+Authorization: {{ines.response.body.token}}
+
+### Erreur 403 : profil non étudiant
+PATCH http://localhost:3000/applications/1/withdraw
+Authorization: {{admin.response.body.token}}

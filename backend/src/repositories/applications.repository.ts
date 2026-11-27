@@ -26,6 +26,14 @@ export const createApplicationsRepository = (db: Db) => {
      VALUES (?, ?, ?)
      RETURNING id, offer_id, student_id, message, status, applied_at`,
   );
+  const withdrawInProgress = db.prepare<[number, number], ApplicationDbo>(
+    `UPDATE applications SET status = 'WITHDRAWN'
+     WHERE id = ? AND student_id = ? AND status = 'IN_PROGRESS'
+     RETURNING id, offer_id, student_id, message, status, applied_at`,
+  );
+  const findOwned = db.prepare<[number, number], { id: number }>(
+    "SELECT id FROM applications WHERE id = ? AND student_id = ?",
+  );
 
   const create = db.transaction((offerId: number, studentId: number, message: string | null) => {
     const offer = findOffer.get(offerId);
@@ -37,10 +45,18 @@ export const createApplicationsRepository = (db: Db) => {
     return { kind: "created", application } as const;
   });
 
+  const withdraw = db.transaction((id: number, studentId: number) => {
+    const application = withdrawInProgress.get(id, studentId);
+    if (application !== undefined) return { kind: "withdrawn", application } as const;
+    if (findOwned.get(id, studentId) === undefined) return { kind: "not_found" } as const;
+    return { kind: "not_in_progress" } as const;
+  });
+
   return {
     findByStudent: (studentId: number): ApplicationListDbo[] => findByStudent.all(studentId),
     create: (offerId: number, studentId: number, message: string | null) =>
       create.immediate(offerId, studentId, message),
+    withdraw: (id: number, studentId: number) => withdraw.immediate(id, studentId),
   };
 };
 

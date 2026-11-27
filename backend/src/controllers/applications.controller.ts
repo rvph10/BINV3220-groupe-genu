@@ -40,5 +40,14 @@ export const createApplicationsRouter = (service: ApplicationsService) => {
     ));
   });
 
+  router.patch("/:id/withdraw", authorize(isStudent), (req, res) => {
+    const rawId = req.params.id;
+    const id = Number(rawId);
+    if (typeof rawId !== "string" || !/^[1-9]\d*$/.test(rawId) || !Number.isSafeInteger(id)) {
+      throw new HttpError(400, "INVALID_PARAMETER", "L'identifiant doit être un entier positif");
+    }
+    res.json(toApplicationDto(service.withdraw(getCurrentUser(req), id)));
+  });
+
   return router;
 };
