@@ -118,6 +118,75 @@ describe("GET /offers : filtre par période", () => {
     expect(offerIds(response.body)).toEqual(ids);
   });
 
+  describe("GET /offers : recherche dans le titre", () => {
+    it.each([
+      ["  pOrTaIl cLiEnT  ", [OFFER.CLIENT_PORTAL]],
+      ["NUMÉRISATION", [OFFER.ARCHIVE_DIGITIZATION]],
+      ["numerisation", []],
+      ["portail refonte", []],
+      ["véhicules", []],
+      ["Lumen Digital", []],
+      ["%", []],
+      ["aucune correspondance", []],
+    ])("cherche l'expression littérale %j uniquement dans le titre", async (q, ids) => {
+      const response = await listOffersAs("ADMIN", ADMINISTRATOR.ANNE_LECLERCQ).query({ q });
+
+      expect(response.status).toBe(200);
+      expect(offerIds(response.body)).toEqual(ids);
+    });
+
+    it.each(["", "   "])("une recherche vide %j conserve les offres accessibles", async (q) => {
+      const response = await listOffersAs("STUDENT", STUDENT.LUCAS_DUPONT).query({ q });
+
+      expect(response.status).toBe(200);
+      expect(offerIds(response.body)).toEqual([
+        OFFER.INTERNAL_CHATBOT,
+        OFFER.DATA_QUALITY,
+        OFFER.FLEET_APP,
+        OFFER.BILLING_API,
+      ]);
+    });
+
+    it("refuse un paramètre de recherche répété", async () => {
+      const response = await listOffersAs("ADMIN", ADMINISTRATOR.ANNE_LECLERCQ)
+        .query("q=portail&q=client");
+
+      expect(response.status).toBe(400);
+      expect(response.body.error.code).toBe("INVALID_QUERY");
+    });
+
+    it("combine la recherche et la période", async () => {
+      const match = await listOffersAs("ADMIN", ADMINISTRATOR.ANNE_LECLERCQ)
+        .query({ q: "application", period: "P2" });
+      const noMatch = await listOffersAs("ADMIN", ADMINISTRATOR.ANNE_LECLERCQ)
+        .query({ q: "application", period: "OTHER" });
+
+      expect(match.status).toBe(200);
+      expect(offerIds(match.body)).toEqual([OFFER.FLEET_APP, OFFER.CLOUD_MIGRATION]);
+      expect(noMatch.status).toBe(200);
+      expect(noMatch.body).toEqual([]);
+    });
+
+    it("ne révèle pas les offres non publiées à un étudiant", async () => {
+      const admin = await listOffersAs("ADMIN", ADMINISTRATOR.ANNE_LECLERCQ)
+        .query({ q: "application", period: "P2" });
+      const student = await listOffersAs("STUDENT", STUDENT.LUCAS_DUPONT)
+        .query({ q: "application", period: "P2" });
+
+      expect(student.status).toBe(200);
+      expect(offerIds(student.body)).toEqual([OFFER.FLEET_APP]);
+      expect(offerIds(admin.body)).toEqual([OFFER.FLEET_APP, OFFER.CLOUD_MIGRATION]);
+    });
+
+    it("ne révèle pas les offres d'un autre déposant", async () => {
+      const response = await listOffersAs("CONTACT", CONTACT.CLAIRE_DUMONT)
+        .query({ q: "portail", period: "P2" });
+
+      expect(response.status).toBe(200);
+      expect(offerIds(response.body)).toEqual([]);
+    });
+  });
+
   it("sans filtre conserve les offres de toutes les périodes", async () => {
     const response = await listOffersAs("ADMIN", ADMINISTRATOR.ANNE_LECLERCQ);
 

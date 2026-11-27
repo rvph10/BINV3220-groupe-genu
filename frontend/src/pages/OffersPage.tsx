@@ -2,6 +2,7 @@ import EmptyState from "../components/EmptyState.tsx";
 import ErrorState from "../components/ErrorState.tsx";
 import LoadingState from "../components/LoadingState.tsx";
 import OfferTable from "../components/OfferTable.tsx";
+import SearchField from "../components/SearchField.tsx";
 import { useOffers } from "../hooks/useOffers.ts";
 import { PERIOD_CODES, type Offer } from "../models/offer.ts";
 import type { User } from "../models/user.ts";
@@ -22,7 +23,8 @@ const DESCRIPTIONS = {
 } as const;
 
 const OffersPage = ({ user, token, onUnauthorized }: OffersPageProps) => {
-  const { offers, isLoading, error, period, changePeriod } = useOffers(token, onUnauthorized);
+  const { offers, isLoading, error, period, changePeriod, search, changeSearch } =
+    useOffers(token, onUnauthorized);
   const [selectedOffer, setSelectedOffer] = useState<Offer | null>(null);
   const [message, setMessage] = useState("");
   const [isApplying, setIsApplying] = useState(false);
@@ -62,7 +64,9 @@ const OffersPage = ({ user, token, onUnauthorized }: OffersPageProps) => {
   const renderContent = () => {
     if (error) return <ErrorState message={error} />;
     if (isLoading) return <LoadingState />;
-    if (offers.length === 0) return <EmptyState message="Aucune offre à afficher." />;
+    if (offers.length === 0) {
+      return <EmptyState message={search.trim() ? "Aucune offre ne correspond à la recherche." : "Aucune offre à afficher."} />;
+    }
     return (
       <>
         <p className="result-count">
@@ -81,6 +85,7 @@ const OffersPage = ({ user, token, onUnauthorized }: OffersPageProps) => {
     <section>
       <h1>Offres de stage</h1>
       <p>{DESCRIPTIONS[user.kind]}</p>
+      <SearchField label="Rechercher par titre" value={search} onChange={changeSearch} />
       <label className="search-field">
         <span>Période</span>
         <select

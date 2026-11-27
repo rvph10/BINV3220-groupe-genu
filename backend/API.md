@@ -149,6 +149,10 @@ récente à la plus ancienne, puis de la plus récente à la plus ancienne.
 - Header `Authorization` obligatoire
 - Paramètre facultatif `period` : `P1`, `P2` ou `OTHER`. Sans ce paramètre, toutes les
   périodes sont incluses. Le filtre s'ajoute aux règles de visibilité du profil.
+- Paramètre facultatif `q` : expression littérale contenue dans le titre, sans distinction
+  de casse. Les espaces en début et fin sont ignorés ; une recherche vide ne filtre pas.
+  La recherche se combine avec `period` et les règles de visibilité. Elle ne supprime
+  pas les accents et ne recherche ni dans la description ni dans l'entreprise.
 
 ### Réponses
 
@@ -170,7 +174,7 @@ récente à la plus ancienne, puis de la plus récente à la plus ancienne.
 `period` vaut `P1`, `P2` ou `OTHER`. `status` vaut `SUBMITTED` (soumise), `PENDING`
 (en attente), `PUBLISHED` (publiée), `ASSIGNED` (attribuée) ou `ARCHIVED` (archivée).
 
-- `400` `INVALID_QUERY` : `period` est invalide, vide ou répété.
+- `400` `INVALID_QUERY` : `period` est invalide, vide ou répété, ou `q` est répété.
 - `401` `UNAUTHENTICATED` : session absente ou invalide.
 - `403` `FORBIDDEN` : contact seulement promoteur ou signataire.
 
