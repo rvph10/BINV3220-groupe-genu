@@ -36,3 +36,5 @@ For examples of complete vertical features, follow the company list or offer lis
 - Keep API/status codes in their established English enum values; user-facing labels are French and belong in the frontend label utilities.
 - Use explicit TypeScript import extensions (`.ts`/`.tsx`) as in existing source files. Lint runs Oxlint with warnings denied.
 - Treat the existing demo data and incomplete feature set as intentional; check the README and product requirements before assuming a listed-but-unimplemented capability already exists.
+
+Pour tout ajout de fonctionnalité ou correction de bug, lis et applique .github/skills/test-driven-development/SKILL.md avant de modifier le code de l’application. Écris et exécute les tests d’abord, présente-les, puis attends leur validation explicite avant l’implémentation. Cette règle ne concerne pas les demandes d’explication ou de documentation seules.
