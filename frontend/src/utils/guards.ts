@@ -1,3 +1,4 @@
+import { APPLICATION_STATUSES, type Application, type ApplicationSummary } from "../models/application.ts";
 import { COMPANY_STATUSES, type Company, type CompanyStatus } from "../models/company.ts";
 import type { Health } from "../models/health.ts";
 import { OFFER_STATUSES, PERIOD_CODES, type Offer } from "../models/offer.ts";
@@ -73,4 +74,18 @@ export const isApplication = (value: unknown): value is Application =>
   (value.message === null || typeof value.message === "string") &&
   value.status === "IN_PROGRESS" &&
   typeof value.appliedAt === "string";
-import type { Application } from "../models/application.ts";
+
+export const isApplicationSummary = (value: unknown): value is ApplicationSummary =>
+  isRecord(value) &&
+  typeof value.id === "number" &&
+  typeof value.offerId === "number" &&
+  typeof value.title === "string" &&
+  typeof value.companyShortName === "string" &&
+  typeof value.academicYear === "string" &&
+  isOneOf(PERIOD_CODES, value.period) &&
+  typeof value.appliedAt === "string" &&
+  (value.message === null || typeof value.message === "string") &&
+  isOneOf(APPLICATION_STATUSES, value.status);
+
+export const isApplicationSummaryList = (value: unknown): value is ApplicationSummary[] =>
+  Array.isArray(value) && value.every(isApplicationSummary);

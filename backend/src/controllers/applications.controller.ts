@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { toApplicationSummaryDto } from "../mappers/application.mapper.ts";
 import { getCurrentUser } from "../middlewares/authenticate.ts";
 import { authorize } from "../middlewares/authorize.ts";
 import type { ApplicationsService } from "../services/applications.service.ts";
@@ -24,6 +25,10 @@ const isApplicationBody = (value: unknown): value is ApplicationBody => {
 
 export const createApplicationsRouter = (service: ApplicationsService) => {
   const router = Router();
+
+  router.get("/", authorize(isStudent), (req, res) => {
+    res.json(service.list(getCurrentUser(req)).map(toApplicationSummaryDto));
+  });
 
   router.post("/", authorize(isStudent), (req, res) => {
     const body: unknown = req.body;

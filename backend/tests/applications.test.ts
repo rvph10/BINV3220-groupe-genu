@@ -16,6 +16,72 @@ beforeEach(() => {
 const apply = (studentId: number = STUDENT.LUCAS_DUPONT) =>
   request(app).post("/applications").set("Authorization", tokenFor("STUDENT", studentId));
 
+const list = (studentId: number) =>
+  request(app).get("/applications").set("Authorization", tokenFor("STUDENT", studentId));
+
+describe("GET /applications", () => {
+  it("ne retourne que les candidatures de chaque étudiant, avec les détails de l'offre", async () => {
+    const lucas = await list(STUDENT.LUCAS_DUPONT);
+    const ines = await list(STUDENT.INES_HADDAD);
+
+    expect(lucas.status).toBe(200);
+    expect(lucas.body).toEqual([{
+      id: 1,
+      offerId: OFFER.FLEET_APP,
+      title: "Application React de gestion de flotte",
+      companyShortName: "Lumen Digital",
+      academicYear: "2026-2027",
+      period: "P2",
+      appliedAt: "2026-10-02 18:10:00",
+      message: "Le développement React m'intéresse particulièrement.",
+      status: "IN_PROGRESS",
+    }]);
+    expect(ines.status).toBe(200);
+    expect(ines.body.map((application: { id: number }) => application.id)).toEqual([2, 5]);
+    expect(ines.body.map((application: { status: string }) => application.status))
+      .toEqual(["IN_PROGRESS", "WITHDRAWN"]);
+  });
+
+  it("retourne les quatre statuts et les offres non publiées, triés par date puis identifiant décroissants", async () => {
+    const insert = db.prepare(
+      `INSERT INTO applications (student_id, offer_id, status, message, applied_at)
+       VALUES (?, ?, ?, ?, ?)`,
+    );
+    insert.run(STUDENT.DMYTRO_KOVALENKO, OFFER.FLEET_APP, "IN_PROGRESS", "Message", "2026-10-01 10:00:00");
+    insert.run(STUDENT.DMYTRO_KOVALENKO, OFFER.CLOUD_MIGRATION, "SELECTED", null, "2026-10-03 10:00:00");
+    insert.run(STUDENT.DMYTRO_KOVALENKO, OFFER.PDF_REPORTS, "REJECTED", null, "2026-10-02 10:00:00");
+    insert.run(STUDENT.DMYTRO_KOVALENKO, OFFER.BILLING_API, "WITHDRAWN", null, "2026-10-03 10:00:00");
+    const response = await list(STUDENT.DMYTRO_KOVALENKO);
+
+    expect(response.status).toBe(200);
+    expect(response.body.map((application: { status: string }) => application.status))
+      .toEqual(["WITHDRAWN", "SELECTED", "REJECTED", "IN_PROGRESS"]);
+    expect(response.body[2]).toMatchObject({
+      offerId: OFFER.PDF_REPORTS, academicYear: "2025-2026", period: "P1",
+    });
+  });
+
+  it("retourne une liste vide pour un étudiant sans candidature", async () => {
+    const response = await list(STUDENT.LOUIS_CLAES);
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual([]);
+  });
+
+  it("refuse les requêtes sans session et les profils non étudiants", async () => {
+    expect((await request(app).get("/applications")).status).toBe(401);
+    for (const [kind, id] of [
+      ["ADMIN", ADMINISTRATOR.ANNE_LECLERCQ],
+      ["CONTACT", CONTACT.CLAIRE_DUMONT],
+      ["CONTACT", CONTACT.NADIA_CHERIF],
+    ] as const) {
+      const response = await request(app).get("/applications")
+        .set("Authorization", tokenFor(kind, id));
+      expect(response.status).toBe(403);
+      expect(response.body.error.code).toBe("FORBIDDEN");
+    }
+  });
+});
+
 describe("POST /applications", () => {
   it("crée une candidature avec un message et l'identité de la session", async () => {
     const response = await apply().send({ offerId: OFFER.DATA_QUALITY, message: "Bonjour" });

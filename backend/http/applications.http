@@ -1,0 +1,35 @@
+### Connexion de démo : Lucas
+# @name lucas
+POST http://localhost:3000/auth/demo-login
+Content-Type: application/json
+
+{ "kind": "STUDENT", "id": 1 }
+
+### Connexion de démo : Inès
+# @name ines
+POST http://localhost:3000/auth/demo-login
+Content-Type: application/json
+
+{ "kind": "STUDENT", "id": 2 }
+
+### Connexion de démo : administratrice
+# @name admin
+POST http://localhost:3000/auth/demo-login
+Content-Type: application/json
+
+{ "kind": "ADMIN", "id": 1 }
+
+### Candidatures de Lucas
+GET http://localhost:3000/applications
+Authorization: {{lucas.response.body.token}}
+
+### Candidatures d'Inès
+GET http://localhost:3000/applications
+Authorization: {{ines.response.body.token}}
+
+### Erreur 403 : profil non étudiant
+GET http://localhost:3000/applications
+Authorization: {{admin.response.body.token}}
+
+### Erreur 401 : jeton absent
+GET http://localhost:3000/applications

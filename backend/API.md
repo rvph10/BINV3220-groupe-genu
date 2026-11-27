@@ -173,6 +173,43 @@ récente à la plus ancienne, puis de la plus récente à la plus ancienne.
 - `401` `UNAUTHENTICATED` : session absente ou invalide.
 - `403` `FORBIDDEN` : contact seulement promoteur ou signataire.
 
+## GET /applications
+
+Liste les candidatures de l'étudiant connecté, toutes années et tous statuts
+d'offre confondus, de la plus récente à la plus ancienne. À date égale, les
+identifiants les plus élevés apparaissent en premier.
+
+### Requête
+
+- Header `Authorization` obligatoire ; réservé aux étudiants.
+
+### Réponses
+
+- `200` : tableau de candidatures, éventuellement vide.
+
+```json
+[
+  {
+    "id": 1,
+    "offerId": 1,
+    "title": "Application React de gestion de flotte",
+    "companyShortName": "Lumen Digital",
+    "academicYear": "2026-2027",
+    "period": "P2",
+    "appliedAt": "2026-10-02 18:10:00",
+    "message": "Le développement React m'intéresse particulièrement.",
+    "status": "IN_PROGRESS"
+  }
+]
+```
+
+`message` peut être `null`. `period` vaut `P1`, `P2` ou `OTHER` ; `status`
+vaut `IN_PROGRESS` (en cours), `SELECTED` (retenue), `REJECTED` (non retenue)
+ou `WITHDRAWN` (retirée). `appliedAt` est une date et heure SQLite en UTC.
+
+- `401` `UNAUTHENTICATED` : session absente ou invalide.
+- `403` `FORBIDDEN` : profil non étudiant.
+
 ## POST /applications
 
 Crée une candidature pour l'étudiant connecté à une offre publiée (RG-03).
