@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gesta — parcours de la liste des offres</title>
+  <style>
+    :root { color-scheme: light; font-family: system-ui, sans-serif; color: #17243b; background: #f3f6fa; line-height: 1.6; }
+    body { max-width: 1000px; margin: auto; padding: 2rem 1.25rem 4rem; }
+    header, section { background: white; border: 1px solid #dce5ef; border-radius: 12px; padding: 1.3rem 1.6rem; margin-bottom: 1rem; }
+    h1, h2, h3 { line-height: 1.25; color: #17365e; }
+    h1 { margin-top: 0; }
+    a { color: #005ba8; overflow-wrap: anywhere; }
+    code { font-family: ui-monospace, monospace; font-size: .92em; }
+    pre { overflow-x: auto; padding: 1rem; background: #eef3f8; border-radius: 6px; }
+    .flow { font-weight: 600; color: #245780; }
+    .note { border-left: 4px solid #2781a3; padding-left: 1rem; }
+    li { margin: .55rem 0; }
+    @media print { body { background: white; } header, section { break-inside: avoid; } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Parcours de la liste des offres</h1>
+    <p>De la page React à SQLite, puis retour des données vers le tableau. Ce document décrit le code existant ; le filtre par période présenté à la fin est une proposition, pas une fonctionnalité déjà disponible.</p>
+    <p class="flow">App → page → hook → service frontend → API Express → contrôleur → service → repository → SQLite</p>
+  </header>
+
+  <section>
+    <h2>Vue d’ensemble</h2>
+    <p><a href="../frontend/">frontend/</a> contient l’interface React : les pages assemblent des composants, les hooks gèrent les états et les services appellent l’API. <a href="../backend/">backend/</a> contient l’API Express : les contrôleurs traitent les requêtes, les services appliquent les règles métier et les repositories interrogent SQLite.</p>
+    <p>En développement, Vite transmet les appels <code>/api/…</code> au backend en retirant <code>/api</code> : voir <a href="../frontend/vite.config.ts">frontend/vite.config.ts</a>. Le schéma de la base se trouve dans <a href="../backend/src/db/migrations/001_initial.sql">001_initial.sql</a>.</p>
+  </section>
+
+  <section>
+    <h2>1. De React à la requête HTTP</h2>
+    <ol>
+      <li><strong>Route de l’interface.</strong> Dans <a href="../frontend/src/App.tsx">frontend/src/App.tsx</a>, <code>App</code> ouvre la route <code>/offres</code> pour un utilisateur connecté autorisé par <code>canListOffers</code>. Il transmet à <code>OffersPage</code> l’utilisateur, le jeton et <code>auth.logout</code> comme gestionnaire de session expirée.</li>
+      <li><strong>Page.</strong> <code>OffersPage</code>, dans <a href="../frontend/src/pages/OffersPage.tsx">OffersPage.tsx</a>, appelle <code>useOffers(token, onUnauthorized)</code>. Selon le résultat, elle affiche le chargement, l’erreur, l’état vide ou le nombre d’offres et <code>OfferTable</code>.</li>
+      <li><strong>Hook.</strong> <code>useOffers</code>, dans <a href="../frontend/src/hooks/useOffers.ts">useOffers.ts</a>, lance <code>getOffers</code> dans un effet, conserve les offres et les états de chargement et d’erreur, et annule la requête avec <code>AbortController</code> au nettoyage. Une réponse 401 déclenche <code>onUnauthorized</code>.</li>
+      <li><strong>Service frontend.</strong> <code>getOffers</code>, dans <a href="../frontend/src/services/offers.service.ts">frontend/src/services/offers.service.ts</a>, envoie <code>GET /api/offers</code> avec le jeton brut dans <code>Authorization</code>. <code>readJson</code>, dans <a href="../frontend/src/utils/api.ts">api.ts</a>, vérifie le statut et le JSON avec <code>isOfferList</code> de <a href="../frontend/src/utils/guards.ts">guards.ts</a>.</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>2. De la route API à SQLite</h2>
+    <ol>
+      <li><strong>Montage et authentification.</strong> <code>createApp</code> dans <a href="../backend/src/app.ts">backend/src/app.ts</a> construit les repositories et services, puis monte <code>createOffersRouter</code> sur <code>/offers</code> après le middleware <code>authenticate</code>. Celui-ci vérifie le jeton et recharge l’utilisateur : voir <a href="../backend/src/middlewares/authenticate.ts">authenticate.ts</a>.</li>
+      <li><strong>Contrôleur.</strong> <code>createOffersRouter</code> dans <a href="../backend/src/controllers/offers.controller.ts">offers.controller.ts</a> traite <code>GET /offers</code>. <code>authorize(canListOffers)</code> vérifie les droits ; le gestionnaire appelle <code>listOffers(getCurrentUser(req))</code>, applique <code>toOfferDto</code> et renvoie le tableau JSON. Les règles sont définies dans <a href="../backend/src/services/permissions.ts">permissions.ts</a>.</li>
+      <li><strong>Service métier.</strong> <code>createOffersService</code> et sa méthode <code>listOffers</code>, dans <a href="../backend/src/services/offers.service.ts">backend/src/services/offers.service.ts</a>, appellent <code>visibilityFilter</code> puis <code>repository.findAll</code> et convertissent les lignes avec <code>toOffer</code>. L’administrateur voit toutes les offres ; l’étudiant uniquement les offres publiées ; le contact déposant uniquement ses propres offres. Un contact sans rôle de déposant est refusé avec 403.</li>
+      <li><strong>Repository et requête.</strong> <code>createOffersRepository</code> et sa méthode <code>findAll</code>, dans <a href="../backend/src/repositories/offers.repository.ts">offers.repository.ts</a>, exécutent une requête préparée. Les filtres de visibilité sont liés comme paramètres ; une valeur <code>null</code> désactive le filtre correspondant.</li>
+    </ol>
+    <pre><code>SELECT o.id, o.title, o.description, o.status,
+       o.company_id, c.short_name AS company_short_name,
+       o.depositor_contact_id,
+       ay.label AS academic_year_label, p.code AS period_code,
+       o.created_at, o.updated_at
+FROM offers o
+JOIN companies c ON c.id = o.company_id
+JOIN academic_years ay ON ay.id = o.academic_year_id
+JOIN periods p ON p.id = o.period_id
+WHERE (@status IS NULL OR o.status = @status)
+  AND (@depositorContactId IS NULL OR o.depositor_contact_id = @depositorContactId)
+ORDER BY ay.start_date DESC, o.created_at DESC</code></pre>
+    <p>La jointure avec <code>periods</code> fournit déjà le code de période. Les offres sont triées par année académique décroissante, puis par date de création décroissante.</p>
+  </section>
+
+  <section>
+    <h2>3. Retour des données et affichage</h2>
+    <p>Dans <a href="../backend/src/mappers/offer.mapper.ts">offer.mapper.ts</a>, <code>toOffer</code> convertit chaque ligne <code>OfferDbo</code> en objet métier, puis <code>toOfferDto</code> construit la réponse publique. Le frontend valide ce tableau, le hook met son état à jour et <code>OffersPage</code> transmet les offres à <code>OfferTable</code>, dans <a href="../frontend/src/components/OfferTable.tsx">OfferTable.tsx</a>. Le tableau traduit les codes de période avec <code>PERIOD_LABELS</code> dans <a href="../frontend/src/utils/labels.ts">labels.ts</a>.</p>
+  </section>
+
+  <section>
+    <h2>Ajouter un filtre par période</h2>
+    <p>Une approche possible consiste à ajouter un paramètre facultatif <code>period</code> à <code>GET /offers</code>, filtré par le serveur. L’absence de paramètre signifie « toutes les périodes » ; les valeurs transmises sont <code>P1</code>, <code>P2</code> et <code>OTHER</code> (« Autre »). Le filtre doit s’ajouter aux restrictions de visibilité, jamais les remplacer.</p>
+    <ul>
+      <li><a href="../frontend/src/pages/OffersPage.tsx">OffersPage.tsx</a> : ajouter un sélecteur accessible et son état, avec une option « Toutes » ; transmettre la sélection au hook.</li>
+      <li><a href="../frontend/src/models/offer.ts">frontend/src/models/offer.ts</a> et <a href="../frontend/src/utils/labels.ts">labels.ts</a> : réutiliser <code>PeriodCode</code>, <code>PERIOD_CODES</code> et <code>PERIOD_LABELS</code>, déjà définis. Le format de l’offre retournée ne change pas.</li>
+      <li><a href="../frontend/src/hooks/useOffers.ts">useOffers.ts</a> : accepter la période, relancer et annuler le chargement lorsqu’elle change, et gérer correctement les états de chargement et d’erreur.</li>
+      <li><a href="../frontend/src/services/offers.service.ts">frontend/src/services/offers.service.ts</a> : transmettre la période facultative dans la chaîne de requête, par exemple avec <code>URLSearchParams</code>.</li>
+      <li><a href="../backend/src/controllers/offers.controller.ts">offers.controller.ts</a> : lire et valider le paramètre facultatif, refuser les valeurs inconnues ou répétées avec une erreur 400, puis le transmettre au service.</li>
+      <li><a href="../backend/src/services/offers.service.ts">backend/src/services/offers.service.ts</a> : combiner la période demandée avec <code>visibilityFilter(viewer)</code> avant d’appeler le repository.</li>
+      <li><a href="../backend/src/repositories/offers.repository.ts">offers.repository.ts</a> : étendre <code>OfferFilter</code>, les paramètres et la requête préparée avec un filtre facultatif sur <code>p.code</code>, combiné par <code>AND</code> aux filtres existants. Le type <code>PeriodCode</code> existe déjà dans <a href="../backend/src/models/offer.ts">backend/src/models/offer.ts</a>. Le schéma stocke déjà les trois codes : aucune migration n’est nécessaire pour cette approche.</li>
+      <li><a href="../backend/tests/offers.test.ts">backend/tests/offers.test.ts</a> et <a href="../frontend/tests/OffersPage.test.tsx">frontend/tests/OffersPage.test.tsx</a> : couvrir les choix de période, l’absence de filtre, les entrées invalides et le maintien des restrictions selon les profils.</li>
+      <li><a href="../backend/API.md">backend/API.md</a> et <a href="../backend/http/offers.http">backend/http/offers.http</a> : documenter le paramètre et ajouter des exemples de requêtes.</li>
+    </ul>
+    <p class="note">Une alternative serait de filtrer uniquement en mémoire côté interface, puisque chaque offre reçue contient déjà <code>period</code>. Dans ce cas, seules les couches frontend et leurs tests changent ; le serveur continuerait toutefois à envoyer toutes les offres visibles.</p>
+  </section>
+
+  <section>
+    <h2>Commandes de vérification</h2>
+    <p>À la racine du dépôt, après installation des dépendances avec <code>npm ci</code> :</p>
+    <ul>
+      <li><code>npm run lint</code> : Oxlint sur les deux espaces de travail.</li>
+      <li><code>npm run typecheck</code> : vérification TypeScript.</li>
+      <li><code>npm test</code> : tous les tests Vitest.</li>
+      <li><code>npm run build</code> : compilation du backend et du frontend.</li>
+      <li><code>npm run check</code> : enchaîne lint, typecheck, tests et build.</li>
+      <li><code>npm test --workspace=backend -- tests/offers.test.ts</code> : tests API des offres ; <code>npm test --workspace=frontend -- tests/OffersPage.test.tsx</code> : tests de la page.</li>
+      <li>Ajouter <code>-t "nom du test"</code> après le fichier pour cibler un test par son nom.</li>
+    </ul>
+    <p>Pour lancer l’application localement : <code>npm run setup</code> une première fois, puis <code>npm run dev</code>. Voir le <a href="../README.md">README</a> et <a href="architecture.md">architecture.md</a> pour davantage de contexte.</p>
+  </section>
+</body>
+</html>
