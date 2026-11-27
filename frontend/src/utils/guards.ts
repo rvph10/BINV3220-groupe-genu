@@ -9,6 +9,7 @@ import {
   type Session,
   type User,
 } from "../models/user.ts";
+import { isSqliteUtcDateTime } from "./date.ts";
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
@@ -70,7 +71,6 @@ export const isApplication = (value: unknown): value is Application =>
   isRecord(value) &&
   typeof value.id === "number" &&
   typeof value.offerId === "number" &&
-  typeof value.studentId === "number" &&
   (value.message === null || typeof value.message === "string") &&
   value.status === "IN_PROGRESS" &&
   typeof value.appliedAt === "string";
@@ -84,6 +84,7 @@ export const isApplicationSummary = (value: unknown): value is ApplicationSummar
   typeof value.academicYear === "string" &&
   isOneOf(PERIOD_CODES, value.period) &&
   typeof value.appliedAt === "string" &&
+  isSqliteUtcDateTime(value.appliedAt) &&
   (value.message === null || typeof value.message === "string") &&
   isOneOf(APPLICATION_STATUSES, value.status);
 

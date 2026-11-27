@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { toApplicationSummaryDto } from "../mappers/application.mapper.ts";
+import { toApplicationDto, toApplicationSummaryDto } from "../mappers/application.mapper.ts";
 import { getCurrentUser } from "../middlewares/authenticate.ts";
 import { authorize } from "../middlewares/authorize.ts";
 import type { ApplicationsService } from "../services/applications.service.ts";
@@ -35,7 +35,9 @@ export const createApplicationsRouter = (service: ApplicationsService) => {
     if (!isApplicationBody(body)) {
       throw new HttpError(400, "INVALID_BODY", "Indiquez un offerId entier positif et un message facultatif");
     }
-    res.status(201).json(service.apply(getCurrentUser(req), body.offerId, body.message ?? null));
+    res.status(201).json(toApplicationDto(
+      service.apply(getCurrentUser(req), body.offerId, body.message ?? null),
+    ));
   });
 
   return router;

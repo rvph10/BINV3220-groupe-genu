@@ -6,7 +6,6 @@ export type ApplicationStatus = (typeof APPLICATION_STATUSES)[number];
 export interface Application {
   id: number;
   offerId: number;
-  studentId: number;
   message: string | null;
   status: "IN_PROGRESS";
   appliedAt: string;

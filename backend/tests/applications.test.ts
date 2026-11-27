@@ -89,7 +89,6 @@ describe("POST /applications", () => {
     expect(response.body).toEqual({
       id: expect.any(Number),
       offerId: OFFER.DATA_QUALITY,
-      studentId: STUDENT.LUCAS_DUPONT,
       message: "Bonjour",
       status: "IN_PROGRESS",
       appliedAt: expect.any(String),

@@ -3,6 +3,7 @@ import ErrorState from "../components/ErrorState.tsx";
 import LoadingState from "../components/LoadingState.tsx";
 import StatusBadge from "../components/StatusBadge.tsx";
 import { useApplications } from "../hooks/useApplications.ts";
+import { formatSqliteUtcDateTime } from "../utils/date.ts";
 import { APPLICATION_STATUS_LABELS, APPLICATION_STATUS_TONES, PERIOD_LABELS } from "../utils/labels.ts";
 
 interface ApplicationsPageProps {
@@ -38,7 +39,7 @@ const ApplicationsPage = ({ token, onUnauthorized }: ApplicationsPageProps) => {
                 <td>{application.companyShortName}</td>
                 <td>{application.academicYear}</td>
                 <td>{PERIOD_LABELS[application.period]}</td>
-                <td>{application.appliedAt}</td>
+                <td>{formatSqliteUtcDateTime(application.appliedAt)}</td>
                 <td className="application-message">{application.message || "—"}</td>
                 <td>
                   <StatusBadge

@@ -147,7 +147,7 @@ describe("OffersPage", () => {
     const fetchMock = stubFetch({
       "/api/offers": () => Response.json([published]),
       "/api/applications": () => Response.json({
-        id: 7, offerId: published.id, studentId: studentUser.id, message: "Bonjour",
+        id: 7, offerId: published.id, message: "Bonjour",
         status: "IN_PROGRESS", appliedAt: "2026-10-04 14:50:00",
       }, { status: 201 }),
     });

@@ -225,7 +225,7 @@ de cet étudiant à cette offre sont retirées. Les candidatures retirées sont 
 
 ### Réponses
 
-- `201` : `{ "id": 7, "offerId": 5, "studentId": 1, "message": null, "status": "IN_PROGRESS", "appliedAt": "2026-10-04 14:50:00" }`
+- `201` : `{ "id": 7, "offerId": 5, "message": null, "status": "IN_PROGRESS", "appliedAt": "2026-10-04 14:50:00" }`
 - `400` `INVALID_BODY` : corps invalide.
 - `401` `UNAUTHENTICATED` : session absente ou invalide.
 - `403` `FORBIDDEN` : profil non étudiant.

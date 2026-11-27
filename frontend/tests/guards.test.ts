@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  isApplication,
   isCompany,
   isCompanyList,
   isHealth,
@@ -86,6 +87,17 @@ const offer = {
   period: "P2",
   status: "PUBLISHED",
 };
+
+describe("isApplication", () => {
+  it("accepte une candidature créée sans studentId et refuse les données incomplètes", () => {
+    const application = {
+      id: 1, offerId: 3, message: null, status: "IN_PROGRESS", appliedAt: "2026-10-04 14:50:00",
+    };
+    expect(isApplication(application)).toBe(true);
+    expect(isApplication({ ...application, offerId: undefined })).toBe(false);
+    expect(isApplication({ ...application, status: "REJECTED" })).toBe(false);
+  });
+});
 
 describe("isOffer", () => {
   it("accepte une offre valide", () => {

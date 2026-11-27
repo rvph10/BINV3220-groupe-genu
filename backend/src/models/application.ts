@@ -20,6 +20,14 @@ export interface Application {
   appliedAt: string;
 }
 
+export interface ApplicationDto {
+  id: number;
+  offerId: number;
+  message: string | null;
+  status: ApplicationStatus;
+  appliedAt: string;
+}
+
 export interface ApplicationListDbo extends ApplicationDbo {
   offer_title: string;
   company_short_name: string;

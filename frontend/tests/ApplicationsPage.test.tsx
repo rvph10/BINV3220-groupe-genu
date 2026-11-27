@@ -1,5 +1,5 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import ApplicationsPage from "../src/pages/ApplicationsPage.tsx";
 import { stubFetch } from "./helpers/fetchMock.ts";
 
@@ -26,8 +26,13 @@ const applications = [
   },
 ];
 
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
 describe("ApplicationsPage", () => {
   it("affiche les détails et les quatre statuts français dans l'ordre reçu", async () => {
+    vi.stubEnv("TZ", "Europe/Brussels");
     const fetchMock = stubFetch({ "/api/applications": () => Response.json(applications) });
     render(<ApplicationsPage token="jeton" onUnauthorized={vi.fn()} />);
     const rows = await screen.findAllByRole("row");
@@ -37,7 +42,7 @@ describe("ApplicationsPage", () => {
     expect(within(rows[1]!).getByText("Orbis")).toBeInTheDocument();
     expect(within(rows[1]!).getByText("2026-2027")).toBeInTheDocument();
     expect(within(rows[1]!).getByText("P2")).toBeInTheDocument();
-    expect(within(rows[1]!).getByText("2026-10-04 10:30:00")).toBeInTheDocument();
+    expect(within(rows[1]!).getByText("04/10/2026 12:30")).toBeInTheDocument();
     expect(within(rows[1]!).getByText("Bonjour")).toBeInTheDocument();
     expect(within(rows[2]!).getByText("Retenue")).toBeInTheDocument();
     expect(within(rows[2]!).getByText("—")).toBeInTheDocument();
@@ -68,6 +73,12 @@ describe("ApplicationsPage", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("statut 500");
     unmount();
     stubFetch({ "/api/applications": () => Response.json([{ ...applications[0], status: "UNKNOWN" }]) });
+    render(<ApplicationsPage token="jeton" onUnauthorized={vi.fn()} />);
+    expect(await screen.findByRole("alert")).toHaveTextContent("Réponse inattendue de l'API");
+  });
+
+  it("signale une date invalide dans la réponse API", async () => {
+    stubFetch({ "/api/applications": () => Response.json([{ ...applications[0], appliedAt: "2026-02-30 10:00:00" }]) });
     render(<ApplicationsPage token="jeton" onUnauthorized={vi.fn()} />);
     expect(await screen.findByRole("alert")).toHaveTextContent("Réponse inattendue de l'API");
   });
