@@ -141,4 +141,85 @@ describe("OffersPage", () => {
     expect(await screen.findByText("Publiée")).toBeInTheDocument();
     expect(screen.queryByText("Soumise")).not.toBeInTheDocument();
   });
+
+  it("permet à un étudiant de candidater avec un message", async () => {
+    const published = { ...offers[0], status: "PUBLISHED" };
+    const fetchMock = stubFetch({
+      "/api/offers": () => Response.json([published]),
+      "/api/applications": () => Response.json({
+        id: 7, offerId: published.id, studentId: studentUser.id, message: "Bonjour",
+        status: "IN_PROGRESS", appliedAt: "2026-10-04 14:50:00",
+      }, { status: 201 }),
+    });
+    render(<OffersPage user={studentUser} token="jeton" onUnauthorized={vi.fn()} />);
+
+    fireEvent.click(await screen.findByRole("button", { name: `Candidater à ${published.title}` }));
+    fireEvent.change(screen.getByLabelText("Message facultatif"), { target: { value: "Bonjour" } });
+    fireEvent.click(screen.getByRole("button", { name: "Envoyer ma candidature" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent("Votre candidature");
+    expect(fetchMock).toHaveBeenCalledWith("/api/applications", {
+      method: "POST",
+      headers: { Authorization: "jeton", "Content-Type": "application/json" },
+      body: JSON.stringify({ offerId: published.id, message: "Bonjour" }),
+    });
+    expect(screen.queryByLabelText("Message facultatif")).not.toBeInTheDocument();
+  });
+
+  it("permet de candidater sans message et affiche un conflit", async () => {
+    const published = { ...offers[0], status: "PUBLISHED" };
+    const fetchMock = stubFetch({
+      "/api/offers": () => Response.json([published]),
+      "/api/applications": () => new Response(null, { status: 409 }),
+    });
+    render(<OffersPage user={studentUser} token="jeton" onUnauthorized={vi.fn()} />);
+
+    fireEvent.click(await screen.findByRole("button", { name: `Candidater à ${published.title}` }));
+    fireEvent.click(screen.getByRole("button", { name: "Envoyer ma candidature" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("candidature non retirée");
+    expect(fetchMock).toHaveBeenCalledWith("/api/applications", expect.objectContaining({
+      body: JSON.stringify({ offerId: published.id }),
+    }));
+    expect(screen.getByLabelText("Message facultatif")).toBeInTheDocument();
+  });
+
+  it("ne propose pas de candidature aux autres profils ni sur une offre non publiée", async () => {
+    const published = { ...offers[0], status: "PUBLISHED" };
+    stubFetch({ "/api/offers": () => Response.json([published, offers[1]]) });
+    const { unmount } = render(<OffersPage user={adminUser} token="jeton" onUnauthorized={vi.fn()} />);
+    await screen.findByText("2 offres");
+    expect(screen.queryByRole("button", { name: /Candidater/ })).not.toBeInTheDocument();
+    unmount();
+
+    render(<OffersPage user={studentUser} token="jeton" onUnauthorized={vi.fn()} />);
+    expect(await screen.findByRole("button", { name: `Candidater à ${published.title}` })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Candidater à Tableau de bord de qualité des données" })).not.toBeInTheDocument();
+  });
+
+  it("signale une session expirée pendant la candidature", async () => {
+    const published = { ...offers[0], status: "PUBLISHED" };
+    stubFetch({
+      "/api/offers": () => Response.json([published]),
+      "/api/applications": () => new Response(null, { status: 401 }),
+    });
+    const onUnauthorized = vi.fn();
+    render(<OffersPage user={studentUser} token="jeton" onUnauthorized={onUnauthorized} />);
+
+    fireEvent.click(await screen.findByRole("button", { name: `Candidater à ${published.title}` }));
+    fireEvent.click(screen.getByRole("button", { name: "Envoyer ma candidature" }));
+    await waitFor(() => expect(onUnauthorized).toHaveBeenCalledOnce());
+  });
+
+  it("affiche une erreur serveur sans fermer le formulaire", async () => {
+    const published = { ...offers[0], status: "PUBLISHED" };
+    stubFetch({
+      "/api/offers": () => Response.json([published]),
+      "/api/applications": () => new Response(null, { status: 500 }),
+    });
+    render(<OffersPage user={studentUser} token="jeton" onUnauthorized={vi.fn()} />);
+    fireEvent.click(await screen.findByRole("button", { name: `Candidater à ${published.title}` }));
+    fireEvent.click(screen.getByRole("button", { name: "Envoyer ma candidature" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("statut 500");
+    expect(screen.getByLabelText("Message facultatif")).toBeInTheDocument();
+  });
 });

@@ -32,6 +32,7 @@ Toute erreur a la même forme :
 | 401 | `UNAUTHENTICATED` | Session absente, expirée ou invalide ; compte non autorisé à se connecter |
 | 403 | `FORBIDDEN` | Utilisateur connecté, mais sans droit sur la ressource |
 | 404 | `NOT_FOUND` | Route inconnue |
+| 409 | `OFFER_NOT_PUBLISHED`, `APPLICATION_EXISTS` | Offre non publiée ou candidature non retirée existante |
 | 500 | `INTERNAL_ERROR` | Erreur inattendue du serveur |
 
 ## GET /health
@@ -171,3 +172,26 @@ récente à la plus ancienne, puis de la plus récente à la plus ancienne.
 - `400` `INVALID_QUERY` : `period` est invalide, vide ou répété.
 - `401` `UNAUTHENTICATED` : session absente ou invalide.
 - `403` `FORBIDDEN` : contact seulement promoteur ou signataire.
+
+## POST /applications
+
+Crée une candidature pour l'étudiant connecté à une offre publiée (RG-03).
+Une nouvelle candidature n'est possible que si toutes les précédentes candidatures
+de cet étudiant à cette offre sont retirées. Les candidatures retirées sont conservées.
+
+### Requête
+
+- Header `Authorization` obligatoire ; réservé aux étudiants.
+- Body JSON : `{ "offerId": 5, "message": "Je suis intéressé." }`.
+  `offerId` est un entier positif ; `message`, facultatif, est une chaîne. Aucun
+  autre champ n'est accepté : l'identité de l'étudiant vient de la session.
+
+### Réponses
+
+- `201` : `{ "id": 7, "offerId": 5, "studentId": 1, "message": null, "status": "IN_PROGRESS", "appliedAt": "2026-10-04 14:50:00" }`
+- `400` `INVALID_BODY` : corps invalide.
+- `401` `UNAUTHENTICATED` : session absente ou invalide.
+- `403` `FORBIDDEN` : profil non étudiant.
+- `404` `NOT_FOUND` : offre inexistante.
+- `409` `OFFER_NOT_PUBLISHED` : offre non publiée.
+- `409` `APPLICATION_EXISTS` : candidature en cours, retenue ou non retenue existante.

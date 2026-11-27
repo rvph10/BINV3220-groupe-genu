@@ -64,3 +64,13 @@ export const isOffer = (value: unknown): value is Offer =>
 
 export const isOfferList = (value: unknown): value is Offer[] =>
   Array.isArray(value) && value.every(isOffer);
+
+export const isApplication = (value: unknown): value is Application =>
+  isRecord(value) &&
+  typeof value.id === "number" &&
+  typeof value.offerId === "number" &&
+  typeof value.studentId === "number" &&
+  (value.message === null || typeof value.message === "string") &&
+  value.status === "IN_PROGRESS" &&
+  typeof value.appliedAt === "string";
+import type { Application } from "../models/application.ts";
