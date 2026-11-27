@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { Offer } from "../models/offer.ts";
+import type { Offer, PeriodCode } from "../models/offer.ts";
 import { getOffers } from "../services/offers.service.ts";
 import { isUnauthorized } from "../utils/api.ts";
 
@@ -8,14 +8,22 @@ import { isUnauthorized } from "../utils/api.ts";
  * onUnauthorized doit être stable (useCallback) pour ne pas relancer le chargement.
  */
 export const useOffers = (token: string, onUnauthorized: () => void) => {
+  const [period, setPeriod] = useState<PeriodCode | undefined>();
   const [offers, setOffers] = useState<Offer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const changePeriod = (nextPeriod: PeriodCode | undefined) => {
+    if (nextPeriod === period) return;
+    setIsLoading(true);
+    setError(null);
+    setPeriod(nextPeriod);
+  };
+
   useEffect(() => {
     const controller = new AbortController();
 
-    getOffers(token, controller.signal)
+    getOffers(token, period, controller.signal)
       .then((data) => {
         if (!controller.signal.aborted) setOffers(data);
       })
@@ -32,7 +40,7 @@ export const useOffers = (token: string, onUnauthorized: () => void) => {
       });
 
     return () => controller.abort();
-  }, [token, onUnauthorized]);
+  }, [token, period, onUnauthorized]);
 
-  return { offers, isLoading, error };
+  return { offers, isLoading, error, period, changePeriod };
 };
