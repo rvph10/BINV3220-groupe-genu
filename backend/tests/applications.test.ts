@@ -23,6 +23,8 @@ const withdraw = (id: number | string, studentId: number = STUDENT.LUCAS_DUPONT)
   request(app).patch(`/applications/${id}/withdraw`)
     .set("Authorization", tokenFor("STUDENT", studentId));
 
+const applicationIds = () => db.prepare("SELECT id FROM applications ORDER BY id").all();
+
 describe("GET /applications", () => {
   it("ne retourne que les candidatures de chaque étudiant, avec les détails de l'offre", async () => {
     const lucas = await list(STUDENT.LUCAS_DUPONT);
@@ -107,7 +109,11 @@ describe("PATCH /applications/:id/withdraw", () => {
 
   it("retire une candidature en cours même si l'offre n'est plus publiée", async () => {
     db.prepare("UPDATE offers SET status = 'ARCHIVED' WHERE id = ?").run(OFFER.FLEET_APP);
-    expect((await withdraw(APPLICATION.LUCAS_FLEET_APP)).status).toBe(200);
+    const response = await withdraw(APPLICATION.LUCAS_FLEET_APP);
+    expect(response.status).toBe(200);
+    expect(response.body.status).toBe("WITHDRAWN");
+    expect(db.prepare("SELECT status FROM applications WHERE id = ?")
+      .get(APPLICATION.LUCAS_FLEET_APP)).toEqual({ status: "WITHDRAWN" });
   });
 
   it("renvoie la même erreur pour une candidature inexistante ou étrangère, quel que soit son statut", async () => {
@@ -188,10 +194,14 @@ describe("POST /applications", () => {
     const response = await apply().send({ offerId: OFFER.DATA_QUALITY });
     expect(response.status).toBe(201);
     expect(response.body.message).toBeNull();
+    expect(db.prepare("SELECT message FROM applications WHERE id = ?").get(response.body.id))
+      .toEqual({ message: null });
   });
 
   it("refuse les requêtes sans session et les profils non étudiants", async () => {
+    const idsBefore = applicationIds();
     expect((await request(app).post("/applications").send({ offerId: OFFER.DATA_QUALITY })).status).toBe(401);
+    expect(applicationIds()).toEqual(idsBefore);
     for (const [kind, id] of [
       ["ADMIN", ADMINISTRATOR.ANNE_LECLERCQ],
       ["CONTACT", CONTACT.CLAIRE_DUMONT],
@@ -199,6 +209,7 @@ describe("POST /applications", () => {
       const response = await request(app).post("/applications")
         .set("Authorization", tokenFor(kind, id)).send({ offerId: OFFER.DATA_QUALITY });
       expect(response.status).toBe(403);
+      expect(applicationIds()).toEqual(idsBefore);
     }
   });
 
@@ -213,22 +224,28 @@ describe("POST /applications", () => {
     { offerId: OFFER.DATA_QUALITY, studentId: STUDENT.INES_HADDAD },
     [],
   ])("refuse un corps invalide ou une identité forgée : %j", async (body) => {
+    const idsBefore = applicationIds();
     const response = await apply().send(body);
     expect(response.status).toBe(400);
     expect(response.body.error.code).toBe("INVALID_BODY");
+    expect(applicationIds()).toEqual(idsBefore);
   });
 
   it("refuse une offre inexistante", async () => {
+    const idsBefore = applicationIds();
     const response = await apply().send({ offerId: 99999 });
     expect(response.status).toBe(404);
+    expect(applicationIds()).toEqual(idsBefore);
   });
 
   it.each([
     OFFER.CLIENT_PORTAL, OFFER.E2E_TESTS, OFFER.CLOUD_MIGRATION, OFFER.PDF_REPORTS,
   ])("refuse l'offre non publiée %i", async (offerId) => {
+    const idsBefore = applicationIds();
     const response = await apply().send({ offerId });
     expect(response.status).toBe(409);
     expect(response.body.error.code).toBe("OFFER_NOT_PUBLISHED");
+    expect(applicationIds()).toEqual(idsBefore);
   });
 
   it.each(["IN_PROGRESS", "SELECTED", "REJECTED"] as const)(
@@ -236,9 +253,11 @@ describe("POST /applications", () => {
     async (status) => {
       db.prepare("UPDATE applications SET status = ? WHERE student_id = ? AND offer_id = ?")
         .run(status, STUDENT.LUCAS_DUPONT, OFFER.FLEET_APP);
+      const idsBefore = applicationIds();
       const response = await apply().send({ offerId: OFFER.FLEET_APP });
       expect(response.status).toBe(409);
       expect(response.body.error.code).toBe("APPLICATION_EXISTS");
+      expect(applicationIds()).toEqual(idsBefore);
     },
   );
 
@@ -256,9 +275,11 @@ describe("POST /applications", () => {
   it("refuse même si un retrait figure parmi les candidatures précédentes", async () => {
     db.prepare("INSERT INTO applications (offer_id, student_id, status) VALUES (?, ?, 'REJECTED')")
       .run(OFFER.BILLING_API, STUDENT.INES_HADDAD);
+    const idsBefore = applicationIds();
     const response = await apply(STUDENT.INES_HADDAD).send({ offerId: OFFER.BILLING_API });
     expect(response.status).toBe(409);
     expect(response.body.error.code).toBe("APPLICATION_EXISTS");
+    expect(applicationIds()).toEqual(idsBefore);
   });
 
   it("n'accepte qu'une candidature lors de deux requêtes simultanées", async () => {
