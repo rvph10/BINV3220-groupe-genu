@@ -137,6 +137,10 @@ body {
   border-bottom: none;
 }
 
+.application-message {
+  white-space: pre-wrap;
+}
+
 /* Statuts */
 
 .status-badge {
@@ -200,6 +204,42 @@ body {
 
 .button-light:hover {
   background-color: #dbeafe;
+}
+
+.button-primary {
+  color: #ffffff;
+  background-color: #1d4ed8;
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.application-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: 32rem;
+  margin-top: 1rem;
+}
+
+.application-form h2 {
+  margin: 0;
+  font-size: 1.125rem;
+}
+
+.application-form textarea {
+  min-height: 6rem;
+  padding: 0.5rem;
+  font: inherit;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+}
+
+.application-actions {
+  display: flex;
+  gap: 0.5rem;
 }
 
 .demo-banner {

@@ -2,13 +2,13 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { beforeEach, describe, expect, it } from "vitest";
 import App from "../src/App.tsx";
-import { studentUser, stubFetch } from "./helpers/fetchMock.ts";
+import { adminUser, studentUser, stubFetch } from "./helpers/fetchMock.ts";
 
 const TOKEN_KEY = "gesta.token";
 
-const renderApp = () =>
+const renderApp = (path = "/") =>
   render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[path]}>
       <App />
     </MemoryRouter>,
   );
@@ -83,5 +83,24 @@ describe("App : session", () => {
 
     expect(screen.getByRole("heading", { name: "Connexion de démonstration" })).toBeInTheDocument();
     expect(localStorage.getItem(TOKEN_KEY)).toBeNull();
+  });
+
+  it("ouvre la page des candidatures pour un étudiant", async () => {
+    localStorage.setItem(TOKEN_KEY, "jeton-mateusz");
+    stubFetch({
+      "/api/auth/me": () => Response.json(studentUser),
+      "/api/applications": () => Response.json([]),
+    });
+    renderApp("/candidatures");
+    expect(await screen.findByRole("heading", { name: "Mes candidatures" })).toBeInTheDocument();
+    expect(await screen.findByText("Aucune candidature à afficher.")).toBeInTheDocument();
+  });
+
+  it("n'ouvre pas la page des candidatures pour un administrateur", async () => {
+    localStorage.setItem(TOKEN_KEY, "jeton-admin");
+    const fetchMock = stubFetch({ "/api/auth/me": () => Response.json(adminUser) });
+    renderApp("/candidatures");
+    expect(await screen.findByRole("heading", { name: "Page introuvable" })).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalledWith("/api/applications", expect.anything());
   });
 });

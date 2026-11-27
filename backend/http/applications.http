@@ -1,0 +1,51 @@
+### Connexion de démo : Lucas
+# @name lucas
+POST http://localhost:3000/auth/demo-login
+Content-Type: application/json
+
+{ "kind": "STUDENT", "id": 1 }
+
+### Connexion de démo : Inès
+# @name ines
+POST http://localhost:3000/auth/demo-login
+Content-Type: application/json
+
+{ "kind": "STUDENT", "id": 2 }
+
+### Connexion de démo : administratrice
+# @name admin
+POST http://localhost:3000/auth/demo-login
+Content-Type: application/json
+
+{ "kind": "ADMIN", "id": 1 }
+
+### Candidatures de Lucas
+GET http://localhost:3000/applications
+Authorization: {{lucas.response.body.token}}
+
+### Candidatures d'Inès
+GET http://localhost:3000/applications
+Authorization: {{ines.response.body.token}}
+
+### Erreur 403 : profil non étudiant
+GET http://localhost:3000/applications
+Authorization: {{admin.response.body.token}}
+
+### Erreur 401 : jeton absent
+GET http://localhost:3000/applications
+
+### Retirer la candidature en cours de Lucas (modifie les données de démo)
+PATCH http://localhost:3000/applications/1/withdraw
+Authorization: {{lucas.response.body.token}}
+
+### Erreur 404 : candidature d'un autre étudiant
+PATCH http://localhost:3000/applications/2/withdraw
+Authorization: {{lucas.response.body.token}}
+
+### Erreur 409 : candidature déjà retirée d'Inès
+PATCH http://localhost:3000/applications/5/withdraw
+Authorization: {{ines.response.body.token}}
+
+### Erreur 403 : profil non étudiant
+PATCH http://localhost:3000/applications/1/withdraw
+Authorization: {{admin.response.body.token}}
