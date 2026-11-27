@@ -20,6 +20,6 @@
 
 - **Suivre le projet au rythme des séances.** J'ai réalisé une grande partie du projet en peu de temps, en fin de quadrimestre. Je n'ai donc pas pu discuter mes choix en séance ni comparer avec d'autres groupes.
 - **Écrire mes propres skills.** J'ai installé et adapté des skills existants, mais je n'en ai pas conçu un de zéro. Le skill `test-gap-audit` n'était pas disponible : j'aurais aimé l'utiliser et le comparer à l'audit fait à la main en semaine 8.
-- **Tests end-to-end et MCP en pratique.** Je comprends le principe de MCP (un client, un serveur qui expose des outils), mais je n'ai pas encore piloté un navigateur avec Playwright MCP ni écrit de tests Playwright versionnés.
+- **Aller plus loin avec les tests end-to-end.** En semaine 10, j'ai piloté un navigateur avec Playwright MCP et écrit deux tests Playwright Test. J'aurais aimé couvrir d'autres parcours (candidater, retirer) et les faire tourner automatiquement en CI.
 - **Mettre un senseur en CI.** Rien n'oblige à lancer `npm run check` dans ce projet. J'aurais aimé mettre en place une CI et implémenter le senseur d'architecture proposé en semaine 8 (sens des imports dans le frontend).
 - **Mesurer le coût réel d'un harnais.** Savoir quand un guide ou un senseur supplémentaire vaut le temps et les crédits qu'il coûte.
