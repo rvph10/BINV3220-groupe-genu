@@ -67,6 +67,61 @@ describe("OffersPage", () => {
     await waitFor(() => expect(onUnauthorized).toHaveBeenCalled());
   });
 
+  it("combine la recherche par titre avec la période et rétablit la liste quand elle est effacée", async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = new URL(String(input), "http://localhost");
+      const period = url.searchParams.get("period");
+      const q = url.searchParams.get("q");
+      return Promise.resolve(Response.json(
+        period === "P2" && q === "portail client" ? [offers[0]] : offers,
+      ));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<OffersPage user={adminUser} token="jeton" onUnauthorized={vi.fn()} />);
+    await screen.findByText("2 offres");
+
+    fireEvent.change(screen.getByRole("combobox", { name: "Période" }), {
+      target: { value: "P2" },
+    });
+    fireEvent.change(screen.getByRole("searchbox", { name: /rechercher.*titre/i }), {
+      target: { value: "  portail client  " },
+    });
+
+    expect(await screen.findByText("1 offre")).toBeInTheDocument();
+    expect(screen.getByText("Refonte du portail client")).toBeInTheDocument();
+    expect(screen.queryByText("Tableau de bord de qualité des données")).not.toBeInTheDocument();
+    const matchingCall = fetchMock.mock.calls.find(([input]) => {
+      const url = new URL(String(input), "http://localhost");
+      return url.searchParams.get("period") === "P2" && url.searchParams.get("q") === "portail client";
+    });
+    expect(matchingCall).toBeDefined();
+
+    fireEvent.change(screen.getByRole("searchbox", { name: /rechercher.*titre/i }), {
+      target: { value: "   " },
+    });
+    expect(await screen.findByText("2 offres")).toBeInTheDocument();
+    const lastUrl = new URL(String(fetchMock.mock.lastCall?.[0]), "http://localhost");
+    expect(lastUrl.searchParams.get("period")).toBe("P2");
+    expect(lastUrl.searchParams.get("q") ?? "").toBe("");
+  });
+
+  it("affiche un message adapté quand aucun titre ne correspond", async () => {
+    const publishedOffers = offers.map((offer) => ({ ...offer, status: "PUBLISHED" }));
+    vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
+      const url = new URL(String(input), "http://localhost");
+      return Promise.resolve(Response.json(url.searchParams.get("q") ? [] : publishedOffers));
+    }));
+    render(<OffersPage user={studentUser} token="jeton" onUnauthorized={vi.fn()} />);
+    await screen.findByText("2 offres");
+
+    fireEvent.change(screen.getByRole("searchbox", { name: /rechercher.*titre/i }), {
+      target: { value: "introuvable" },
+    });
+
+    expect(await screen.findByText(/aucune offre.*(recherche|correspond)/i)).toBeInTheDocument();
+    expect(screen.queryByText("Refonte du portail client")).not.toBeInTheDocument();
+  });
+
   it("transmet chaque période puis rétablit toutes les périodes", async () => {
     const p1 = { ...offers[0], id: 8, title: "Offre P1", period: "P1" };
     const allOffers = [p1, ...offers];
