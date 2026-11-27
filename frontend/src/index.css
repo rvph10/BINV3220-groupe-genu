@@ -91,10 +91,12 @@ body {
   font-weight: 600;
 }
 
-.search-field input {
+.search-field input,
+.search-field select {
   padding: 0.5rem 0.75rem;
   font: inherit;
   font-weight: 400;
+  background-color: #ffffff;
   border: 1px solid #d1d5db;
   border-radius: 6px;
 }

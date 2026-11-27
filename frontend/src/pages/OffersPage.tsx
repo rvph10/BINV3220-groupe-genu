@@ -3,7 +3,9 @@ import ErrorState from "../components/ErrorState.tsx";
 import LoadingState from "../components/LoadingState.tsx";
 import OfferTable from "../components/OfferTable.tsx";
 import { useOffers } from "../hooks/useOffers.ts";
+import { PERIOD_CODES } from "../models/offer.ts";
 import type { User } from "../models/user.ts";
+import { PERIOD_LABELS } from "../utils/labels.ts";
 
 interface OffersPageProps {
   user: User;
@@ -18,7 +20,7 @@ const DESCRIPTIONS = {
 } as const;
 
 const OffersPage = ({ user, token, onUnauthorized }: OffersPageProps) => {
-  const { offers, isLoading, error } = useOffers(token, onUnauthorized);
+  const { offers, isLoading, error, period, changePeriod } = useOffers(token, onUnauthorized);
 
   const renderContent = () => {
     if (error) return <ErrorState message={error} />;
@@ -38,6 +40,18 @@ const OffersPage = ({ user, token, onUnauthorized }: OffersPageProps) => {
     <section>
       <h1>Offres de stage</h1>
       <p>{DESCRIPTIONS[user.kind]}</p>
+      <label className="search-field">
+        <span>Période</span>
+        <select
+          value={period ?? ""}
+          onChange={(event) => changePeriod(PERIOD_CODES.find((code) => code === event.target.value))}
+        >
+          <option value="">Toutes les périodes</option>
+          {PERIOD_CODES.map((code) => (
+            <option key={code} value={code}>{PERIOD_LABELS[code]}</option>
+          ))}
+        </select>
+      </label>
       {renderContent()}
     </section>
   );

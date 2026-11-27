@@ -97,3 +97,73 @@ describe("GET /offers : visibilité selon le profil", () => {
     );
   });
 });
+
+describe("GET /offers : filtre par période", () => {
+  it.each([
+    ["P1", [OFFER.PDF_REPORTS]],
+    ["P2", [
+      OFFER.CLIENT_PORTAL,
+      OFFER.INTERNAL_CHATBOT,
+      OFFER.DATA_QUALITY,
+      OFFER.FLEET_APP,
+      OFFER.BILLING_API,
+      OFFER.CLOUD_MIGRATION,
+      OFFER.ARCHIVE_DIGITIZATION,
+    ]],
+    ["OTHER", [OFFER.CONSULTANT_PLANNING, OFFER.E2E_TESTS]],
+  ])("retourne seulement les offres de la période %s", async (period, ids) => {
+    const response = await listOffersAs("ADMIN", ADMINISTRATOR.ANNE_LECLERCQ).query({ period });
+
+    expect(response.status).toBe(200);
+    expect(offerIds(response.body)).toEqual(ids);
+  });
+
+  it("sans filtre conserve les offres de toutes les périodes", async () => {
+    const response = await listOffersAs("ADMIN", ADMINISTRATOR.ANNE_LECLERCQ);
+
+    expect(response.status).toBe(200);
+    expect(response.body).toHaveLength(10);
+    expect(new Set(response.body.map((offer: { period: string }) => offer.period))).toEqual(
+      new Set(["P1", "P2", "OTHER"]),
+    );
+  });
+
+  it.each(["period=P3", "period=", "period=P1&period=P2"])(
+    "refuse le paramètre invalide ou répété %s",
+    async (query) => {
+      const response = await listOffersAs("ADMIN", ADMINISTRATOR.ANNE_LECLERCQ).query(query);
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({
+        error: {
+          code: "INVALID_QUERY",
+          message: "Le paramètre period doit valoir P1, P2 ou OTHER",
+        },
+      });
+    },
+  );
+
+  it("ne montre à un étudiant que les offres publiées de la période demandée", async () => {
+    const response = await listOffersAs("STUDENT", STUDENT.LUCAS_DUPONT).query({ period: "P2" });
+
+    expect(response.status).toBe(200);
+    expect(offerIds(response.body)).toEqual([
+      OFFER.INTERNAL_CHATBOT,
+      OFFER.DATA_QUALITY,
+      OFFER.FLEET_APP,
+      OFFER.BILLING_API,
+    ]);
+    expect(response.body.every((offer: { status: string }) => offer.status === "PUBLISHED")).toBe(
+      true,
+    );
+    const empty = await listOffersAs("STUDENT", STUDENT.LUCAS_DUPONT).query({ period: "P1" });
+    expect(empty.body).toEqual([]);
+  });
+
+  it("ne montre au déposant que ses offres de la période demandée", async () => {
+    const response = await listOffersAs("CONTACT", CONTACT.MARC_LEJEUNE).query({ period: "OTHER" });
+
+    expect(response.status).toBe(200);
+    expect(offerIds(response.body)).toEqual([OFFER.E2E_TESTS]);
+  });
+});
